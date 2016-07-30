@@ -25,7 +25,7 @@ class lapDataProcessing:
     lapCatalogue = {
         'ADM Raceway': [55.564698,37.991055,55.564420,37.990999],
         'Firsanovka':[55.971814,37.255240,55.971925,37.254937],
-
+        'KrekshinoRaceway':[55.587631, 37.100228,55.587420, 37.100162]
     }
 
 
@@ -40,17 +40,23 @@ class lapDataProcessing:
         if (gpsSentence[3:6] != "RMC"): # break if string is not RMC
             return 0,0
         gpsString = gpsSentence.split(",")
+        #print gpsString
+
+        fixType = gpsString[2]
+        if fixType != 'A':
+            return 0, 0
+
         day = int(gpsString[9][0:2])
         month = int(gpsString[9][2:4])
         year = int(gpsString[9][4:])
         hours   = int(gpsString[1][0:2])
         minutes = int(gpsString[1][2:4])
         seconds = float(gpsString[1][4:9])
-        fixType = gpsString[2]
+
         latitude = int(gpsString[3][0:2])+float(gpsString[3][2:])/60   #in dec degrees
         if (gpsString[4]=="S"):
             latitude = -latitude
-        longitude = int(gpsString[5][0:2]) + float(gpsString[5][2:]) / 60  # in dec degrees
+        longitude = int(gpsString[5][0:3]) + float(gpsString[5][3:]) / 60  # in dec degrees
         if (gpsString[6] == "W"):
             longitude = -longitude
         speed = float(gpsString[7])*1.852  #in km/h
@@ -63,9 +69,10 @@ class lapDataProcessing:
                 lapTime = self.getLapTime((hours*3600) + (minutes*60) + seconds)
                 print("LAP", self.startTime, lapTime, gpsString[1])
                 self.saveLapTime(self.getTrackName(), lapTime, day,month,year)
+                self.saveRawDataToFile("run1.txt")
 
         rawData = [latitude, longitude, hours, minutes, seconds, day, month, year, speed]
-        self.saveRawDataToFile("/home/ubuntu/PycharmProjects/LapTimer/run1.txt", rawData)
+        self.saveRawDataToFile("run1.txt", rawData)
 
         self.prevLat = latitude
         self.prevLon = longitude
@@ -113,7 +120,7 @@ class lapDataProcessing:
 
 
     def connectGPS(self, path="/dev/ttyUSB0"):
-        self.gpsReceiver = serial.Serial(path,9600)
+        self.gpsReceiver = serial.Serial(path,115200)
         self.gpsReceiver.close()
         self.gpsReceiver.open()
 
@@ -152,10 +159,13 @@ class lapDataProcessing:
             return -1,-1
         return False
 
-    def saveRawDataToFile(self,filename="/home/ubuntu/PycharmProject/LapTimer/test.txt",data=[0,0,0,0,0,0,0,0,0]):
+    def saveRawDataToFile(self,filename="test.txt",data=[0,0,0,0,0,0,0,0,0]):
         f = open(filename,"a")
-        string = str(data[0]) + "\t" + str(data[1]) + "\t" + str(data[2]) + "\t" + str(data[3]) + "\t" + str(data[4]) + "\t" \
-               + str(data[5]) + "\t" + str(data[6]) + "\t" + str(data[7]) + "\t" + str(data[8]) + "\n"
+        #string = "{track}\t{hh:02.0f}:{mm:02.0f}:{ss:02.3f} on {day:02d}/{month:02d}/{year:02d}\n" \
+        #    .format(track=track, hh=hours_part, mm=minutes_part, ss=seconds_part, day=day, month=month, year=year)
+
+        string = "{lat:02.10f}\t{lon:02.10f}\t{hh:02.0f}:{mm:02.0f}:{ss:02.3f}\t{day:02d}/{month:02d}/{year:02d}\t{speed:02.2f}\n" \
+                .format(lat=data[0], lon=data[1],hh=data[2], mm=data[3], ss=data[4], day = data[5], month=data[6],year=data[7],speed=data[8])
         f.write(string)
         f.close()
 
@@ -193,7 +203,7 @@ class lapDataProcessing:
 
 
 moto = lapDataProcessing()
-moto.connectGPS("/dev/ttyUSB0")
+moto.connectGPS("/dev/cu.usbmodemFA131")
 for i in range(4):
     gpsMsg = moto.getDataFromGPS()
 lat,lon = moto.processGPSData(gpsMsg)
